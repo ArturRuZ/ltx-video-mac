@@ -5,6 +5,11 @@ All notable changes to LTX Video Generator will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.55] - 2026-04-28
+
+### Fixed
+- **Issue #47 — I2V broken on LTX-2.3 Distilled Q4** — Require `mlx-video-with-audio>=0.1.35` which fixes VAE encoder weight loading for split-format unified models. The encoder was loading zero weights (bare keys not matched, wrong Conv3d transpose, stats key format mismatch), causing image conditioning to silently produce garbage latents so I2V ran as pure text-to-video.
+
 ## [2.3.54] - 2026-04-23
 
 ### Fixed
