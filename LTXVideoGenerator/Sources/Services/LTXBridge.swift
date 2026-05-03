@@ -199,6 +199,7 @@ import json
 import subprocess
 import time
 import select
+import signal
 
 # Set up file logging
 log_file = open("\(logFile)", "w")
@@ -419,6 +420,20 @@ try:
     process.wait()
     
     if process.returncode != 0:
+        if process.returncode < 0:
+            signal_num = -process.returncode
+            signal_name = signal.Signals(signal_num).name if signal_num in signal.Signals._value2member_map_ else f"signal {signal_num}"
+            if signal_num == signal.SIGABRT:
+                raise RuntimeError(
+                    "mlx_video.generate_av aborted with SIGABRT (code -6). "
+                    "This is usually a native MLX/Metal abort, often from peak unified-memory pressure. "
+                    "Retry with lower-memory settings: 512x320, 25/33/49 frames, 24 FPS, and aggressive VAE tiling. "
+                    "Full subprocess output is in /tmp/ltx_generation.log."
+                )
+            raise RuntimeError(
+                f"mlx_video.generate_av was terminated by {signal_name} (code {process.returncode}). "
+                "Full subprocess output is in /tmp/ltx_generation.log."
+            )
         raise RuntimeError(f"mlx_video.generate_av failed with code {process.returncode}")
     
     log(f"Video with audio saved to: \(outputPath)")
@@ -508,6 +523,10 @@ except Exception as e:
                     } else if lower.contains("valueerror: [conv] expect the input channels") {
                         failureHintLock.lock()
                         capturedFailureHint = "Detected MLX VAE channel mismatch during decoding. Update with: pip install -U \"mlx-video-with-audio>=0.1.25\". If it persists, your checkpoint may need `embedded_config.json` VAE `timestep_conditioning` — file an issue with logs."
+                        failureHintLock.unlock()
+                    } else if lower.contains("sigabrt") || lower.contains("failed with code -6") || lower.contains("aborted with code -6") {
+                        failureHintLock.lock()
+                        capturedFailureHint = "The MLX generation process aborted with SIGABRT (code -6). This is usually a native MLX/Metal abort, often caused by peak unified-memory pressure. Retry with 512x320 resolution, 25/33/49 frames, 24 FPS, and aggressive VAE tiling. If it still fails, attach /tmp/ltx_generation.log to the GitHub issue."
                         failureHintLock.unlock()
                     } else if lower.contains("kiogpucommandbuffercallbackerroroutofmemory")
                                 || lower.contains("insufficient memory")

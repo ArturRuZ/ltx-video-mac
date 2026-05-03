@@ -4,6 +4,7 @@ import UniformTypeIdentifiers
 struct PromptInputView: View {
     @EnvironmentObject var generationService: GenerationService
     @EnvironmentObject var presetManager: PresetManager
+    @EnvironmentObject var characterProfileManager: CharacterProfileManager
     
     @Binding var prompt: String
     @Binding var negativePrompt: String
@@ -45,6 +46,8 @@ struct PromptInputView: View {
     @State private var previewStatusMessage = ""
     @State private var showMemoryRiskAlert = false
     @State private var pendingQueueAction: PendingQueueAction?
+    @State private var showSaveCharacterProfile = false
+    @State private var newCharacterProfileName = ""
 
     private var sourceImagePath: String? {
         storedImagePath.isEmpty ? nil : storedImagePath
@@ -78,6 +81,10 @@ struct PromptInputView: View {
             : " Switch tiling to aggressive for lower peak memory."
         return "This request may hit Metal memory limits (estimated ~\(estimatedMemoryGB)GB on a ~\(machineMemoryGB)GB machine). Recommended retry settings: 512x320 resolution, 25/33/49 frames, 24 FPS.\(tilingHint)"
     }
+
+    private var selectedVoiceId: String {
+        voiceoverSource == .elevenLabs ? selectedElevenLabsVoice : selectedMLXVoice
+    }
     
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -101,6 +108,59 @@ struct PromptInputView: View {
                             .stroke(isPromptFocused ? Color.accentColor : Color.clear, lineWidth: 2)
                     )
                     .focused($isPromptFocused)
+            }
+
+            // Character consistency profiles
+            DisclosureGroup {
+                VStack(alignment: .leading, spacing: 12) {
+                    if characterProfileManager.profiles.isEmpty {
+                        Text("Save a character profile to reuse the same visual prompt, source image, voice, music, model, and generation settings.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        HStack {
+                            Picker("", selection: $characterProfileManager.selectedProfile) {
+                                ForEach(characterProfileManager.profiles) { profile in
+                                    Text(profile.name).tag(profile as CharacterProfile?)
+                                }
+                            }
+                            .labelsHidden()
+
+                            Button("Apply") {
+                                if let profile = characterProfileManager.selectedProfile {
+                                    applyCharacterProfile(profile)
+                                }
+                            }
+                            .disabled(characterProfileManager.selectedProfile == nil)
+
+                            if let profile = characterProfileManager.selectedProfile {
+                                Button(role: .destructive) {
+                                    characterProfileManager.deleteProfile(profile)
+                                } label: {
+                                    Image(systemName: "trash")
+                                }
+                                .buttonStyle(.borderless)
+                                .help("Delete character profile")
+                            }
+                        }
+                    }
+
+                    Button {
+                        showSaveCharacterProfile = true
+                    } label: {
+                        Label("Save Current Character Profile", systemImage: "person.crop.square")
+                    }
+                    .disabled(prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+
+                    Text("Profiles do not train LoRAs or clone voices; they bundle the consistent visual and audio settings already supported by the app.")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
+                .padding(.top, 8)
+            } label: {
+                Label("Character Profile", systemImage: "person.crop.rectangle.stack")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
             }
             
             // Gemma Prompt Enhancement
@@ -578,6 +638,13 @@ struct PromptInputView: View {
                 }
             )
         }
+        .sheet(isPresented: $showSaveCharacterProfile) {
+            SaveCharacterProfileSheet(
+                profileName: $newCharacterProfileName,
+                isPresented: $showSaveCharacterProfile,
+                onSave: saveCurrentCharacterProfile
+            )
+        }
         .onAppear {
             if !storedImagePath.isEmpty && sourceImageThumbnail == nil {
                 let url = URL(fileURLWithPath: storedImagePath)
@@ -650,6 +717,56 @@ struct PromptInputView: View {
             parameters: parameters
         )
         generationService.addToQueue(request)
+    }
+
+    private func saveCurrentCharacterProfile(name: String) {
+        let profile = CharacterProfile(
+            name: name,
+            prompt: prompt,
+            negativePrompt: negativePrompt,
+            sourceImagePath: sourceImagePath,
+            voiceoverText: voiceoverText,
+            voiceoverSource: voiceoverSource.rawValue,
+            voiceoverVoice: selectedVoiceId,
+            musicEnabled: musicEnabled,
+            musicGenre: musicEnabled ? selectedMusicGenre.rawValue : nil,
+            disableAudio: disableAudio,
+            modelId: selectedModelID,
+            parameters: parameters
+        )
+        characterProfileManager.addProfile(profile)
+        newCharacterProfileName = ""
+    }
+
+    private func applyCharacterProfile(_ profile: CharacterProfile) {
+        prompt = profile.prompt
+        negativePrompt = profile.negativePrompt
+        voiceoverText = profile.voiceoverText
+        voiceoverSource = AudioSource(rawValue: profile.voiceoverSource) ?? .mlxAudio
+        if voiceoverSource == .elevenLabs {
+            selectedElevenLabsVoice = profile.voiceoverVoice
+        } else {
+            selectedMLXVoice = profile.voiceoverVoice
+        }
+        musicEnabled = profile.musicEnabled
+        if let musicGenre = profile.musicGenre, let genre = MusicGenre(rawValue: musicGenre) {
+            selectedMusicGenre = genre
+        }
+        disableAudio = profile.disableAudio
+        selectedModelID = profile.modelId
+        parameters = profile.parameters
+
+        storedImagePath = profile.sourceImagePath ?? ""
+        if let imagePath = profile.sourceImagePath, !imagePath.isEmpty {
+            loadThumbnail(from: URL(fileURLWithPath: imagePath))
+            showImageToVideo = true
+        } else {
+            sourceImageThumbnail = nil
+        }
+
+        showNegativePrompt = !negativePrompt.isEmpty
+        showVoiceover = !voiceoverText.isEmpty
+        showMusic = musicEnabled
     }
 
     private func requestSingleGeneration() {
@@ -768,6 +885,40 @@ private enum PendingQueueAction {
     case batch(Int)
 }
 
+private struct SaveCharacterProfileSheet: View {
+    @Binding var profileName: String
+    @Binding var isPresented: Bool
+    let onSave: (String) -> Void
+
+    var body: some View {
+        VStack(spacing: 20) {
+            Text("Save Character Profile")
+                .font(.headline)
+
+            TextField("Profile Name", text: $profileName)
+                .textFieldStyle(.roundedBorder)
+
+            HStack {
+                Button("Cancel") {
+                    isPresented = false
+                }
+                .keyboardShortcut(.cancelAction)
+
+                Spacer()
+
+                Button("Save") {
+                    onSave(profileName)
+                    isPresented = false
+                }
+                .keyboardShortcut(.defaultAction)
+                .disabled(profileName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+        }
+        .padding()
+        .frame(width: 320)
+    }
+}
+
 private struct EnhancedPreviewSheet: View {
     let enhancedPrompt: String
     let originalPrompt: String
@@ -830,5 +981,6 @@ private struct EnhancedPreviewSheet: View {
     )
     .environmentObject(GenerationService(historyManager: HistoryManager()))
     .environmentObject(PresetManager())
+    .environmentObject(CharacterProfileManager())
     .frame(width: 500)
 }

@@ -28,6 +28,7 @@ struct RootView: View {
     @Environment(\.openSettings) private var openSettingsAction
     @StateObject private var historyManager: HistoryManager
     @StateObject private var presetManager: PresetManager
+    @StateObject private var characterProfileManager: CharacterProfileManager
     @StateObject private var generationService: GenerationService
     @State private var showPythonSetupAlert = false
     @State private var hasCheckedPython = false
@@ -41,6 +42,7 @@ struct RootView: View {
         let history = HistoryManager()
         _historyManager = StateObject(wrappedValue: history)
         _presetManager = StateObject(wrappedValue: PresetManager())
+        _characterProfileManager = StateObject(wrappedValue: CharacterProfileManager())
         _generationService = StateObject(wrappedValue: GenerationService(historyManager: history))
     }
     
@@ -57,10 +59,12 @@ struct RootView: View {
         ContentView()
             .environmentObject(historyManager)
             .environmentObject(presetManager)
+            .environmentObject(characterProfileManager)
             .environmentObject(generationService)
             .task {
                 historyManager.loadInitialData()
                 presetManager.loadInitialData()
+                characterProfileManager.loadInitialData()
                 
                 // One-time launch check: must NOT set hasCheckedPython until work finishes — if we set it
                 // before `await validateWithSubprocess`, a cancelled .task would skip validation forever.
