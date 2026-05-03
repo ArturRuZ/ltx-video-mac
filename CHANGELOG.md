@@ -5,6 +5,14 @@ All notable changes to LTX Video Generator will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.56] - 2026-05-02
+
+### Added
+- **Character profiles** — Save and reapply consistent visual prompt, source image, voice, music, model, and generation settings for repeat character workflows.
+
+### Fixed
+- **Issue #48 — MLX generation abort guidance** — Detect SIGABRT/code -6 failures from `mlx_video.generate_av` and show targeted Metal/unified-memory retry guidance with the log location.
+
 ## [2.3.55] - 2026-04-28
 
 ### Fixed
