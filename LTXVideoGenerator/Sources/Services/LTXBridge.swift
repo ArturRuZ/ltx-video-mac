@@ -426,8 +426,9 @@ try:
             if signal_num == signal.SIGABRT:
                 raise RuntimeError(
                     "mlx_video.generate_av aborted with SIGABRT (code -6). "
-                    "This is usually a native MLX/Metal abort, often from peak unified-memory pressure. "
-                    "Retry with lower-memory settings: 512x320, 25/33/49 frames, 24 FPS, and aggressive VAE tiling. "
+                    "This is usually a native MLX/Metal abort, often from peak unified-memory pressure "
+                    "or the macOS Metal watchdog terminating a long-running command buffer. "
+                    "Update mlx-video-with-audio, then retry with lower-memory settings if needed. "
                     "Full subprocess output is in /tmp/ltx_generation.log."
                 )
             raise RuntimeError(
@@ -524,9 +525,15 @@ except Exception as e:
                         failureHintLock.lock()
                         capturedFailureHint = "Detected MLX VAE channel mismatch during decoding. Update with: pip install -U \"mlx-video-with-audio>=0.1.25\". If it persists, your checkpoint may need `embedded_config.json` VAE `timestep_conditioning` — file an issue with logs."
                         failureHintLock.unlock()
+                    } else if lower.contains("kiogpucommandbuffercallbackerrorimpactinginteractivity")
+                                || lower.contains("impacting interactivity") {
+                        failureHintLock.lock()
+                        capturedFailureHint = "Metal stopped generation because a command buffer was impacting interactivity. Update with: pip install -U \"mlx-video-with-audio>=0.1.36\" and retry; this version splits large model warmup work into smaller Metal command buffers. If it persists, attach /tmp/ltx_generation.log to the GitHub issue."
+                        failureHintLock.unlock()
+                        progressHandler(0.01, "Generation stopped: Metal watchdog timeout")
                     } else if lower.contains("sigabrt") || lower.contains("failed with code -6") || lower.contains("aborted with code -6") {
                         failureHintLock.lock()
-                        capturedFailureHint = "The MLX generation process aborted with SIGABRT (code -6). This is usually a native MLX/Metal abort, often caused by peak unified-memory pressure. Retry with 512x320 resolution, 25/33/49 frames, 24 FPS, and aggressive VAE tiling. If it still fails, attach /tmp/ltx_generation.log to the GitHub issue."
+                        capturedFailureHint = "The MLX generation process aborted with SIGABRT (code -6). Update with: pip install -U \"mlx-video-with-audio>=0.1.36\" and retry. If it still fails, try 512x320 resolution, 25/33/49 frames, 24 FPS, and aggressive VAE tiling, then attach /tmp/ltx_generation.log to the GitHub issue."
                         failureHintLock.unlock()
                     } else if lower.contains("kiogpucommandbuffercallbackerroroutofmemory")
                                 || lower.contains("insufficient memory")

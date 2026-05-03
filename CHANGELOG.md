@@ -5,6 +5,11 @@ All notable changes to LTX Video Generator will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.57] - 2026-05-02
+
+### Fixed
+- **Issue #48 — Metal watchdog abort during text encoder warmup** — Require `mlx-video-with-audio>=0.1.36`, which splits large MLX model warmup evals into smaller command buffers and emits structured text encoder phase diagnostics. The app now detects `kIOGPUCommandBufferCallbackErrorImpactingInteractivity` separately from memory pressure.
+
 ## [2.3.56] - 2026-05-02
 
 ### Added

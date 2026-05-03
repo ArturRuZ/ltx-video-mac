@@ -23,8 +23,8 @@ struct PythonDetails {
     }
 }
 
-/// Minimum mlx-video-with-audio version (fix I2V VAE encoder loading for Q4 split models)
-private let mlxVideoMinVersion = "0.1.35"
+/// Minimum mlx-video-with-audio version (fix Metal watchdog aborts during model warmup)
+private let mlxVideoMinVersion = "0.1.36"
 
 /// Manages Python environment detection and validation
 /// Uses subprocess-based validation to avoid PythonKit crashes
