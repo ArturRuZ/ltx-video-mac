@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [2.3.61] - 2026-05-06
+
 ### Fixed
 - **Issue #52 — Window forced minimum height instead of scrolling** — Lower the root `ContentView` minimum to 480pt tall × 900pt wide (`idealHeight: 800`, `maxHeight: .infinity`) so the window can shrink to fit a 13" laptop minus chrome. Wrap the Generate-tab middle pane (prompt, voiceover, music, prompt enhancement, Generate button) in a vertical `ScrollView` so the Generate button stays reachable regardless of which disclosure groups are expanded. Sidebar is also scrollable for very short windows.
 
