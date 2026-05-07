@@ -122,7 +122,7 @@ class APIServer: ObservableObject {
                 "endpoints": [
                     "GET /status": "Server and generation status",
                     "GET /queue": "Current generation queue",
-                    "POST /generate": "Submit generation request (optional model_id)",
+                    "POST /generate": "Submit generation request (optional model_id, text_encoder_id)",
                     "DELETE /queue/:id": "Cancel a queued request"
                 ]
             ])
@@ -139,6 +139,7 @@ class APIServer: ObservableObject {
         case ("GET", "/queue"):
             let queue = generationService.queue.map { request -> [String: Any] in
                 let model = LTXModelCatalog.resolvedModel(id: request.modelId)
+                let textEncoder = LTXTextEncoderCatalog.resolvedTextEncoder(id: request.textEncoderId)
                 return [
                     "id": request.id.uuidString,
                     "prompt": request.prompt,
@@ -148,6 +149,11 @@ class APIServer: ObservableObject {
                         "id": model.id,
                         "repo": model.repo,
                         "display_name": model.displayName,
+                    ],
+                    "text_encoder": [
+                        "id": textEncoder.id,
+                        "repo": textEncoder.repo,
+                        "display_name": textEncoder.displayName,
                     ],
                     "parameters": [
                         "width": request.parameters.width,
@@ -176,6 +182,8 @@ class APIServer: ObservableObject {
             let musicGenre = body["music_genre"] as? String
             let requestedModelID = body["model_id"] as? String
             let requestedModelRepo = body["model_repo"] as? String
+            let requestedTextEncoderID = body["text_encoder_id"] as? String
+            let requestedTextEncoderRepo = body["text_encoder_repo"] as? String
             let resolvedModel: LTXModel
             if let requestedModelID, let byID = LTXModelCatalog.model(id: requestedModelID) {
                 resolvedModel = byID
@@ -183,6 +191,14 @@ class APIServer: ObservableObject {
                 resolvedModel = byRepo
             } else {
                 resolvedModel = LTXModelCatalog.selectedModel()
+            }
+            let resolvedTextEncoder: LTXTextEncoder
+            if let requestedTextEncoderID, let byID = LTXTextEncoderCatalog.textEncoder(id: requestedTextEncoderID) {
+                resolvedTextEncoder = byID
+            } else if let requestedTextEncoderRepo, let byRepo = LTXTextEncoderCatalog.textEncoder(repo: requestedTextEncoderRepo) {
+                resolvedTextEncoder = byRepo
+            } else {
+                resolvedTextEncoder = LTXTextEncoderCatalog.selectedTextEncoder()
             }
             
             var params = GenerationParameters.default
@@ -205,6 +221,7 @@ class APIServer: ObservableObject {
                 musicEnabled: musicEnabled,
                 musicGenre: musicGenre,
                 modelId: resolvedModel.id,
+                textEncoderId: resolvedTextEncoder.id,
                 parameters: params
             )
             
@@ -214,6 +231,8 @@ class APIServer: ObservableObject {
                 "status": "queued",
                 "model_id": request.modelId,
                 "model_repo": resolvedModel.repo,
+                "text_encoder_id": request.textEncoderId,
+                "text_encoder_repo": resolvedTextEncoder.repo,
                 "message": "Generation request added to queue"
             ])
             

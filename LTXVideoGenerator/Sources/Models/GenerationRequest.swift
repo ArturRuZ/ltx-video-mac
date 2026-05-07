@@ -17,6 +17,15 @@ struct LTXModel: Identifiable, Codable, Hashable {
     }
 }
 
+struct LTXTextEncoder: Identifiable, Codable, Hashable {
+    let id: String
+    let repo: String
+    let displayName: String
+    let downloadSize: String
+    let qualityWarning: String?
+    let tips: String?
+}
+
 enum LTXModelCatalog {
     static let selectedModelIDKey = "selectedModelID"
     // Keep default on Unified unless the user explicitly changes it.
@@ -81,6 +90,53 @@ enum LTXModelCatalog {
     }
 }
 
+enum LTXTextEncoderCatalog {
+    static let selectedTextEncoderIDKey = "selectedTextEncoderID"
+    // Match upstream mlx-video-with-audio default unless the user explicitly opts into Q4.
+    static let defaultTextEncoderID = "gemma3_12b_bf16"
+
+    static let all: [LTXTextEncoder] = [
+        LTXTextEncoder(
+            id: "gemma3_12b_bf16",
+            repo: "mlx-community/gemma-3-12b-it-bf16",
+            displayName: "Gemma 3 12B bf16",
+            downloadSize: "~24GB",
+            qualityWarning: nil,
+            tips: "Quality-first upstream default. Uses substantially more memory during text encoding."
+        ),
+        LTXTextEncoder(
+            id: "gemma3_12b_4bit",
+            repo: "mlx-community/gemma-3-12b-it-4bit",
+            displayName: "Gemma 3 12B 4-bit",
+            downloadSize: "~7GB",
+            qualityWarning: "Quantized: much lower memory use with possible prompt-conditioning quality tradeoffs.",
+            tips: "Recommended for 16GB/32GB Macs or quantized video models."
+        ),
+    ]
+
+    static var defaultTextEncoder: LTXTextEncoder {
+        all.first { $0.id == defaultTextEncoderID } ?? all[0]
+    }
+
+    static func textEncoder(id: String) -> LTXTextEncoder? {
+        all.first { $0.id == id }
+    }
+
+    static func textEncoder(repo: String) -> LTXTextEncoder? {
+        all.first { $0.repo == repo }
+    }
+
+    static func resolvedTextEncoder(id: String?) -> LTXTextEncoder {
+        guard let id, let textEncoder = textEncoder(id: id) else { return defaultTextEncoder }
+        return textEncoder
+    }
+
+    static func selectedTextEncoder(userDefaults: UserDefaults = .standard) -> LTXTextEncoder {
+        let id = userDefaults.string(forKey: selectedTextEncoderIDKey) ?? defaultTextEncoderID
+        return resolvedTextEncoder(id: id)
+    }
+}
+
 struct GenerationRequest: Identifiable, Codable, Equatable {
     let id: UUID
     let prompt: String
@@ -95,6 +151,7 @@ struct GenerationRequest: Identifiable, Codable, Equatable {
     let gemmaRepetitionPenalty: Double  // Gemma prompt enhancement repetition penalty
     let gemmaTopP: Double              // Gemma prompt enhancement top-p sampling
     let modelId: String                // Selected model ID from catalog
+    let textEncoderId: String          // Selected Gemma text encoder ID from catalog
     var parameters: GenerationParameters
     let createdAt: Date
     var status: GenerationStatus
@@ -128,6 +185,7 @@ struct GenerationRequest: Identifiable, Codable, Equatable {
         gemmaRepetitionPenalty: Double = 1.2,
         gemmaTopP: Double = 0.9,
         modelId: String = LTXModelCatalog.defaultModelID,
+        textEncoderId: String = LTXTextEncoderCatalog.defaultTextEncoderID,
         parameters: GenerationParameters = .default,
         createdAt: Date = Date(),
         status: GenerationStatus = .pending
@@ -145,6 +203,7 @@ struct GenerationRequest: Identifiable, Codable, Equatable {
         self.gemmaRepetitionPenalty = gemmaRepetitionPenalty
         self.gemmaTopP = gemmaTopP
         self.modelId = modelId
+        self.textEncoderId = textEncoderId
         self.parameters = parameters
         self.createdAt = createdAt
         self.status = status
@@ -164,6 +223,7 @@ struct GenerationRequest: Identifiable, Codable, Equatable {
         case gemmaRepetitionPenalty
         case gemmaTopP
         case modelId
+        case textEncoderId
         case parameters
         case createdAt
         case status
@@ -184,6 +244,7 @@ struct GenerationRequest: Identifiable, Codable, Equatable {
         gemmaRepetitionPenalty = try container.decode(Double.self, forKey: .gemmaRepetitionPenalty)
         gemmaTopP = try container.decode(Double.self, forKey: .gemmaTopP)
         modelId = try container.decodeIfPresent(String.self, forKey: .modelId) ?? LTXModelCatalog.defaultModelID
+        textEncoderId = try container.decodeIfPresent(String.self, forKey: .textEncoderId) ?? LTXTextEncoderCatalog.defaultTextEncoderID
         parameters = try container.decode(GenerationParameters.self, forKey: .parameters)
         createdAt = try container.decode(Date.self, forKey: .createdAt)
         status = try container.decode(GenerationStatus.self, forKey: .status)

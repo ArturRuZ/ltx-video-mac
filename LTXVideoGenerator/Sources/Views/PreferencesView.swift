@@ -12,6 +12,7 @@ struct PreferencesView: View {
     /// When true, always prepend ~/projects/mlx-video-with-audio to PYTHONPATH if present (dev override).
     @AppStorage("useLocalMlxVideoRepo") private var useLocalMlxVideoRepo = false
     @AppStorage(LTXModelCatalog.selectedModelIDKey) private var selectedModelID = LTXModelCatalog.defaultModelID
+    @AppStorage(LTXTextEncoderCatalog.selectedTextEncoderIDKey) private var selectedTextEncoderID = LTXTextEncoderCatalog.defaultTextEncoderID
 
     @State private var pythonStatus: (success: Bool, message: String)?
     @State private var pythonDetails: PythonDetails?
@@ -26,6 +27,10 @@ struct PreferencesView: View {
 
     private var selectedModel: LTXModel {
         LTXModelCatalog.resolvedModel(id: selectedModelID)
+    }
+
+    private var selectedTextEncoder: LTXTextEncoder {
+        LTXTextEncoderCatalog.resolvedTextEncoder(id: selectedTextEncoderID)
     }
 
     private var appVersionText: String {
@@ -241,6 +246,41 @@ struct PreferencesView: View {
                     .padding(.vertical, 4)
 
                     if let qualityWarning = selectedModel.qualityWarning {
+                        HStack(alignment: .top, spacing: 8) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundStyle(.orange)
+                            Text(qualityWarning)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+
+                    Picker("Text Encoder", selection: $selectedTextEncoderID) {
+                        ForEach(LTXTextEncoderCatalog.all) { textEncoder in
+                            Text("\(textEncoder.displayName) (\(textEncoder.downloadSize))").tag(textEncoder.id)
+                        }
+                    }
+                    .pickerStyle(.menu)
+
+                    HStack(alignment: .top, spacing: 8) {
+                        Image(systemName: "textformat.abc")
+                            .foregroundStyle(.blue)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(selectedTextEncoder.displayName)
+                                .font(.caption.bold())
+                            Text("Uses \(selectedTextEncoder.repo) for generation prompt encoding.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            if let tips = selectedTextEncoder.tips {
+                                Text(tips)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                    .padding(.vertical, 4)
+
+                    if let qualityWarning = selectedTextEncoder.qualityWarning {
                         HStack(alignment: .top, spacing: 8) {
                             Image(systemName: "exclamationmark.triangle.fill")
                                 .foregroundStyle(.orange)
