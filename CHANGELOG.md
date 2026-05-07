@@ -7,13 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
-### Fixed
-- **Issue #53 — SIGKILL / jetsam during text encoder** — Detect subprocess SIGKILL (exit code -9) and surface an actionable message (smaller Gemma text encoder in Preferences, aggressive VAE tiling, lower resolution/frames, close other apps) with approximate free RAM and model/encoder ids. Append the same summary and a stderr-focused log excerpt to `/tmp/ltx_generation.log`.
-- **Issue #48 — Metal “Impacting Interactivity” with aggressive tiling** — Detect `kIOGPUCommandBufferCallbackErrorImpactingInteractivity` / code -6 patterns and explain the Metal watchdog + tiling tradeoff. After a failure with **Aggressive** VAE tiling, the next run automatically uses **Auto** once (persisted hint via `UserDefaults`) until a generation succeeds.
-
 ### Added
 - **Memory preflight** — Non-dismissable-by-default banner when a large unified bf16 model is paired with Gemma 12B bf16 on Macs with under 32 GB physical memory (rough unified-memory guidance using `host_statistics64`).
 - **Text encoder presets** — Gemma 4B bf16 (`mlx-community/gemma-3-4b-it-bf16`) and a **Custom Hugging Face repo** field in Preferences (alongside clearer labels for 12B bf16 and 12B 4-bit).
+
+## [2.3.60] - 2026-05-06
+
+### Fixed
+- **Issue #53 — SIGKILL / jetsam during text encoder** — Detect subprocess SIGKILL (exit code -9) and surface an actionable message (smaller Gemma text encoder in Preferences, aggressive VAE tiling, lower resolution/frames, close other apps) with approximate free RAM and model/encoder ids. Append the same summary and a stderr-focused log excerpt to `/tmp/ltx_generation.log`.
+- **Issue #48 — Metal “Impacting Interactivity” with aggressive tiling** — Detect `kIOGPUCommandBufferCallbackErrorImpactingInteractivity` / code -6 patterns and explain the Metal watchdog + tiling tradeoff. After a failure with **Aggressive** VAE tiling, the next run automatically uses **Auto** once (persisted hint via `UserDefaults`) until a generation succeeds.
 
 ## [2.3.59] - 2026-05-07
 
