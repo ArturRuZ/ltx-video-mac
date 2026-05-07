@@ -92,6 +92,8 @@ enum LTXModelCatalog {
 
 enum LTXTextEncoderCatalog {
     static let selectedTextEncoderIDKey = "selectedTextEncoderID"
+    /// When the "Custom" preset is selected, this repo id is passed as `--text-encoder-repo`.
+    static let customTextEncoderRepoKey = "customTextEncoderRepo"
     // Match upstream mlx-video-with-audio default unless the user explicitly opts into Q4.
     static let defaultTextEncoderID = "gemma3_12b_bf16"
 
@@ -99,18 +101,34 @@ enum LTXTextEncoderCatalog {
         LTXTextEncoder(
             id: "gemma3_12b_bf16",
             repo: "mlx-community/gemma-3-12b-it-bf16",
-            displayName: "Gemma 3 12B bf16",
+            displayName: "Gemma 12B bf16 (max quality, ~24 GB RAM)",
             downloadSize: "~24GB",
             qualityWarning: nil,
             tips: "Quality-first upstream default. Uses substantially more memory during text encoding."
         ),
         LTXTextEncoder(
+            id: "gemma3_4b_bf16",
+            repo: "mlx-community/gemma-3-4b-it-bf16",
+            displayName: "Gemma 4B bf16 (balanced, ~10 GB RAM)",
+            downloadSize: "~10GB",
+            qualityWarning: nil,
+            tips: "Lower memory than 12B bf16; good balance for unified LTX models on 32 GB Macs."
+        ),
+        LTXTextEncoder(
             id: "gemma3_12b_4bit",
             repo: "mlx-community/gemma-3-12b-it-4bit",
-            displayName: "Gemma 3 12B 4-bit",
+            displayName: "Gemma 12B 4-bit (lowest RAM among presets, ~7 GB)",
             downloadSize: "~7GB",
             qualityWarning: "Quantized: much lower memory use with possible prompt-conditioning quality tradeoffs.",
-            tips: "Recommended for 16GB/32GB Macs or quantized video models."
+            tips: "Recommended for 16 GB Macs or when the 12B bf16 text encoder is killed by the system (SIGKILL)."
+        ),
+        LTXTextEncoder(
+            id: "custom",
+            repo: "",
+            displayName: "Custom Hugging Face repo…",
+            downloadSize: "varies",
+            qualityWarning: nil,
+            tips: "Enter any compatible Gemma MLX repo id below. Nothing is downloaded until you run a generation."
         ),
     ]
 
@@ -127,7 +145,22 @@ enum LTXTextEncoderCatalog {
     }
 
     static func resolvedTextEncoder(id: String?) -> LTXTextEncoder {
-        guard let id, let textEncoder = textEncoder(id: id) else { return defaultTextEncoder }
+        guard let id else { return defaultTextEncoder }
+        if id == "custom" {
+            let raw = UserDefaults.standard.string(forKey: customTextEncoderRepoKey)?
+                .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            return LTXTextEncoder(
+                id: "custom",
+                repo: raw,
+                displayName: raw.isEmpty ? "Custom (not set)" : "Custom (\(raw))",
+                downloadSize: "varies",
+                qualityWarning: raw.isEmpty
+                    ? "Set a repository id in Preferences → General (Custom text encoder field)."
+                    : nil,
+                tips: nil
+            )
+        }
+        guard let textEncoder = textEncoder(id: id) else { return defaultTextEncoder }
         return textEncoder
     }
 

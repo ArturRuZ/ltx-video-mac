@@ -32,6 +32,9 @@
 		AA00002B /* AudioService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00002C; };
 		AA00002D /* AddAudioView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00002E; };
 		AA000035 /* CharacterProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000036; };
+		AA000190 /* MacOSSystemMemory.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000191; };
+		AA000192 /* LTXGenerationLogSummary.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000193; };
+		AA000194 /* GenerationFailureRecovery.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000195; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -59,6 +62,9 @@
 		AA00002C /* AudioService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioService.swift; sourceTree = "<group>"; };
 		AA00002E /* AddAudioView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddAudioView.swift; sourceTree = "<group>"; };
 		AA000036 /* CharacterProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CharacterProfile.swift; sourceTree = "<group>"; };
+		AA000191 /* MacOSSystemMemory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacOSSystemMemory.swift; sourceTree = "<group>"; };
+		AA000193 /* LTXGenerationLogSummary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LTXGenerationLogSummary.swift; sourceTree = "<group>"; };
+		AA000195 /* GenerationFailureRecovery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GenerationFailureRecovery.swift; sourceTree = "<group>"; };
 		AA000030 /* LTXVideoGenerator.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = LTXVideoGenerator.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -130,6 +136,9 @@
 			isa = PBXGroup;
 			children = (
 				AA00000E /* LTXBridge.swift */,
+				AA000191 /* MacOSSystemMemory.swift */,
+				AA000193 /* LTXGenerationLogSummary.swift */,
+				AA000195 /* GenerationFailureRecovery.swift */,
 				AA000010 /* GenerationService.swift */,
 				AA000012 /* HistoryManager.swift */,
 				AA000014 /* PresetManager.swift */,
@@ -240,6 +249,9 @@
 				AA00000B /* Preset.swift in Sources */,
 				AA000035 /* CharacterProfile.swift in Sources */,
 				AA00000D /* LTXBridge.swift in Sources */,
+				AA000190 /* MacOSSystemMemory.swift in Sources */,
+				AA000192 /* LTXGenerationLogSummary.swift in Sources */,
+				AA000194 /* GenerationFailureRecovery.swift in Sources */,
 				AA00000F /* GenerationService.swift in Sources */,
 				AA000011 /* HistoryManager.swift in Sources */,
 				AA000013 /* PresetManager.swift in Sources */,

@@ -187,6 +187,8 @@ class GenerationService: ObservableObject {
                     self?.statusMessage = message
                 }
             }
+
+            GenerationFailureRecovery.clearAfterSuccessfulGeneration()
             
             // Create result
             let completedAt = Date()

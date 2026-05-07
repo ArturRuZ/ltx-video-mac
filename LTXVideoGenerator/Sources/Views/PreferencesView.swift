@@ -13,6 +13,7 @@ struct PreferencesView: View {
     @AppStorage("useLocalMlxVideoRepo") private var useLocalMlxVideoRepo = false
     @AppStorage(LTXModelCatalog.selectedModelIDKey) private var selectedModelID = LTXModelCatalog.defaultModelID
     @AppStorage(LTXTextEncoderCatalog.selectedTextEncoderIDKey) private var selectedTextEncoderID = LTXTextEncoderCatalog.defaultTextEncoderID
+    @AppStorage(LTXTextEncoderCatalog.customTextEncoderRepoKey) private var customTextEncoderRepo = ""
 
     @State private var pythonStatus: (success: Bool, message: String)?
     @State private var pythonDetails: PythonDetails?
@@ -286,6 +287,18 @@ struct PreferencesView: View {
                                 .foregroundStyle(.orange)
                             Text(qualityWarning)
                                 .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+
+                    if selectedTextEncoderID == "custom" {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Custom text encoder repo (Hugging Face id)")
+                                .font(.caption.bold())
+                            TextField("e.g. mlx-community/gemma-3-12b-it-4bit", text: $customTextEncoderRepo)
+                                .textFieldStyle(.roundedBorder)
+                            Text("The app does not download weights until you run a generation. Use any MLX-compatible Gemma repo your Python environment supports.")
+                                .font(.caption2)
                                 .foregroundStyle(.secondary)
                         }
                     }
