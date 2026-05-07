@@ -25,21 +25,24 @@ struct PromptInputView: View {
     @AppStorage("enableGemmaPromptEnhancement") private var enableGemmaPromptEnhancement = false
     @AppStorage(LTXModelCatalog.selectedModelIDKey) private var selectedModelID = LTXModelCatalog.defaultModelID
     @AppStorage(LTXTextEncoderCatalog.selectedTextEncoderIDKey) private var selectedTextEncoderID = LTXTextEncoderCatalog.defaultTextEncoderID
-    @State private var voiceoverSource: AudioSource = .mlxAudio
-    @State private var selectedElevenLabsVoice: String = "21m00Tcm4TlvDq8ikWAM"
-    @State private var selectedMLXVoice: String = "af_heart"
-    
-    // Music settings
-    @State private var musicEnabled = false
-    @State private var selectedMusicGenre: MusicGenre = .cinematicUplifting
-    
-    // Audio disable for unified model
-    @State private var disableAudio = false
-    
-    // Gemma prompt enhancement
+
+    // Issue #51: persist these between launches and across tab switches.
+    @AppStorage(SessionSettings.voiceoverSourceKey) private var voiceoverSource: AudioSource = .mlxAudio
+    @AppStorage(SessionSettings.elevenLabsVoiceKey) private var selectedElevenLabsVoice: String = "21m00Tcm4TlvDq8ikWAM"
+    @AppStorage(SessionSettings.mlxVoiceKey) private var selectedMLXVoice: String = "af_heart"
+
+    // Music settings (persisted)
+    @AppStorage(SessionSettings.musicEnabledKey) private var musicEnabled = false
+    @AppStorage(SessionSettings.musicGenreKey) private var selectedMusicGenre: MusicGenre = .cinematicUplifting
+
+    // Audio disable for unified model — persisted (issue #51 explicitly called
+    // this out: "Generate Audio is forced to true on launch").
+    @AppStorage(SessionSettings.disableAudioKey) private var disableAudio = false
+
+    // Gemma prompt enhancement (persisted)
     @State private var showPromptEnhancement = false
-    @State private var gemmaRepetitionPenalty: Double = 1.2
-    @State private var gemmaTopP: Double = 0.9
+    @AppStorage(SessionSettings.gemmaRepetitionPenaltyKey) private var gemmaRepetitionPenalty: Double = 1.2
+    @AppStorage(SessionSettings.gemmaTopPKey) private var gemmaTopP: Double = 0.9
     @State private var showEnhancedPreview = false
     @State private var enhancedPreview: String?
     @State private var isPreviewing = false

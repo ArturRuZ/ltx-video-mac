@@ -4,14 +4,18 @@ struct ContentView: View {
     @EnvironmentObject var generationService: GenerationService
     @EnvironmentObject var historyManager: HistoryManager
     @EnvironmentObject var presetManager: PresetManager
-    
-    @State private var prompt = ""
-    @State private var negativePrompt = ""
-    @State private var voiceoverText = ""
-    @State private var parameters = GenerationParameters.default
-    @State private var selectedTab: Tab = .generate
+
+    // Persisted across app launches (issue #51).
+    @AppStorage(SessionSettings.promptKey) private var prompt = ""
+    @AppStorage(SessionSettings.negativePromptKey) private var negativePrompt = ""
+    @AppStorage(SessionSettings.voiceoverTextKey) private var voiceoverText = ""
+    @AppStorage(SessionSettings.selectedTabKey) private var selectedTab: Tab = .generate
+
+    // GenerationParameters is a struct, so we persist it as JSON via UserDefaults
+    // and bridge through a `@State` binding the children already expect.
+    @State private var parameters: GenerationParameters = SessionSettings.loadParameters()
     @State private var showError = false
-    
+
     enum Tab: String, CaseIterable {
         case generate = "Generate"
         case history = "Video Archive"
@@ -23,7 +27,16 @@ struct ContentView: View {
         } detail: {
             detailContent
         }
-        .frame(minWidth: 1100, minHeight: 700)
+        // Issue #52: relax the hard minimum so the window can shrink on small
+        // displays (e.g. 13" MacBook Air with a non-default text size). Inner
+        // panes are scrollable, so the Generate button stays reachable.
+        .frame(
+            minWidth: 900,
+            idealWidth: 1280,
+            minHeight: 480,
+            idealHeight: 800,
+            maxHeight: .infinity
+        )
         .alert("Error", isPresented: $showError, presenting: generationService.error) { _ in
             Button("OK", role: .cancel) {
                 generationService.clearError()
@@ -34,17 +47,24 @@ struct ContentView: View {
         .onChange(of: generationService.error) { _, newError in
             showError = newError != nil
         }
+        .onChange(of: parameters) { _, newValue in
+            SessionSettings.saveParameters(newValue)
+        }
     }
     
     private var sidebarContent: some View {
-        VStack(spacing: 0) {
-            tabSelector
-            Divider()
-            QueueView()
-                .frame(maxHeight: 300)
-            Spacer()
-            ModelStatusView()
-                .padding()
+        // Issue #52: allow the sidebar to scroll vertically when the window is
+        // very short, so QueueView and ModelStatusView are both still reachable.
+        ScrollView(.vertical, showsIndicators: false) {
+            VStack(spacing: 0) {
+                tabSelector
+                Divider()
+                QueueView()
+                    .frame(minHeight: 160, maxHeight: 300)
+                Divider()
+                ModelStatusView()
+                    .padding()
+            }
         }
         .frame(width: 320)
         .background(Color(nsColor: .windowBackgroundColor))
@@ -222,6 +242,77 @@ struct ModelStatusView: View {
     }
 }
 
+/// Centralized keys + JSON helpers for the session-level settings that issue
+/// #51 asked us to persist between launches. Plain values (Bool, String, raw
+/// representable enums) live as `@AppStorage` directly in the views; complex
+/// structs round-trip through JSON in `UserDefaults`.
+enum SessionSettings {
+    static let promptKey = "session.prompt"
+    static let negativePromptKey = "session.negativePrompt"
+    static let voiceoverTextKey = "session.voiceoverText"
+    static let selectedTabKey = "session.selectedTab"
+    static let parametersKey = "session.generationParameters"
+
+    static let voiceoverSourceKey = "session.voiceoverSource"
+    static let elevenLabsVoiceKey = "session.elevenLabsVoice"
+    static let mlxVoiceKey = "session.mlxVoice"
+    static let musicEnabledKey = "session.musicEnabled"
+    static let musicGenreKey = "session.musicGenre"
+    static let disableAudioKey = "session.disableAudio"
+    static let gemmaRepetitionPenaltyKey = "session.gemmaRepetitionPenalty"
+    static let gemmaTopPKey = "session.gemmaTopP"
+
+    /// Keys that "Reset to defaults" wipes. Excludes app-level prefs that the
+    /// user explicitly configured (Python path, ElevenLabs key, output dir).
+    static let resettableKeys: [String] = [
+        promptKey,
+        negativePromptKey,
+        voiceoverTextKey,
+        selectedTabKey,
+        parametersKey,
+        voiceoverSourceKey,
+        elevenLabsVoiceKey,
+        mlxVoiceKey,
+        musicEnabledKey,
+        musicGenreKey,
+        disableAudioKey,
+        gemmaRepetitionPenaltyKey,
+        gemmaTopPKey,
+        "sourceImagePath",
+        "enableGemmaPromptEnhancement",
+        "saveAudioTrackSeparately",
+        "keepCompletedInQueue",
+        "autoLoadModel",
+        "defaultAudioSource",
+        LTXModelCatalog.selectedModelIDKey,
+        LTXTextEncoderCatalog.selectedTextEncoderIDKey,
+        LTXTextEncoderCatalog.customTextEncoderRepoKey,
+    ]
+
+    static func loadParameters() -> GenerationParameters {
+        guard let data = UserDefaults.standard.data(forKey: parametersKey) else {
+            return .default
+        }
+        if let decoded = try? JSONDecoder().decode(GenerationParameters.self, from: data) {
+            return decoded
+        }
+        return .default
+    }
+
+    static func saveParameters(_ value: GenerationParameters) {
+        if let data = try? JSONEncoder().encode(value) {
+            UserDefaults.standard.set(data, forKey: parametersKey)
+        }
+    }
+
+    static func resetAll() {
+        let defaults = UserDefaults.standard
+        for key in resettableKeys {
+            defaults.removeObject(forKey: key)
+        }
+    }
+}
+
 struct GenerateView: View {
     @Binding var prompt: String
     @Binding var negativePrompt: String
@@ -236,16 +327,22 @@ struct GenerateView: View {
     }
     
     private var promptArea: some View {
-        VStack {
-            PromptInputView(
-                prompt: $prompt,
-                negativePrompt: $negativePrompt,
-                voiceoverText: $voiceoverText,
-                parameters: $parameters
-            )
-            Spacer()
-            TipsView()
-                .padding()
+        // Issue #52: wrap the prompt + actions in a vertical ScrollView so the
+        // Generate button stays reachable when the window is shorter than the
+        // accumulated content (e.g. on a 13" MacBook Air with non-default text
+        // size). The internal layout is unchanged.
+        ScrollView(.vertical, showsIndicators: true) {
+            VStack(spacing: 0) {
+                PromptInputView(
+                    prompt: $prompt,
+                    negativePrompt: $negativePrompt,
+                    voiceoverText: $voiceoverText,
+                    parameters: $parameters
+                )
+                TipsView()
+                    .padding()
+            }
+            .frame(maxWidth: .infinity)
         }
         .frame(minWidth: 400, idealWidth: 500)
     }
