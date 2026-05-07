@@ -25,6 +25,7 @@ struct PreferencesView: View {
     @State private var installMessage: String?
     @State private var isTestingElevenLabs = false
     @State private var elevenLabsTestResult: (success: Bool, message: String)?
+    @State private var showResetConfirm = false
 
     private var selectedModel: LTXModel {
         LTXModelCatalog.resolvedModel(id: selectedModelID)
@@ -324,6 +325,20 @@ struct PreferencesView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
+
+                Section("Reset") {
+                    HStack {
+                        Button(role: .destructive) {
+                            showResetConfirm = true
+                        } label: {
+                            Label("Reset to Defaults…", systemImage: "arrow.counterclockwise")
+                        }
+                        Spacer()
+                    }
+                    Text("Clears persisted prompt, generation parameters, audio toggles, and model selections. Python path, output directory, and ElevenLabs API key are kept.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
             .formStyle(.grouped)
             .tabItem {
@@ -458,6 +473,14 @@ struct PreferencesView: View {
         .frame(width: 550, height: 450)
         .sheet(isPresented: $showPathPicker) {
             DetectedPathsView(paths: detectedPaths, selectedPath: $pythonPath, isPresented: $showPathPicker)
+        }
+        .alert("Reset to defaults?", isPresented: $showResetConfirm) {
+            Button("Cancel", role: .cancel) {}
+            Button("Reset", role: .destructive) {
+                SessionSettings.resetAll()
+            }
+        } message: {
+            Text("This clears the persisted prompt, generation parameters, audio settings, prompt-enhancement toggles, and model/text-encoder selections. Python path, output directory, and ElevenLabs API key are preserved.")
         }
     }
     

@@ -7,7 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [2.3.61] - 2026-05-06
+
+### Fixed
+- **Issue #52 — Window forced minimum height instead of scrolling** — Lower the root `ContentView` minimum to 480pt tall × 900pt wide (`idealHeight: 800`, `maxHeight: .infinity`) so the window can shrink to fit a 13" laptop minus chrome. Wrap the Generate-tab middle pane (prompt, voiceover, music, prompt enhancement, Generate button) in a vertical `ScrollView` so the Generate button stays reachable regardless of which disclosure groups are expanded. Sidebar is also scrollable for very short windows.
+
 ### Added
+- **Issue #51 — Persist generation settings between launches** — Migrate session-level settings to `@AppStorage`/`UserDefaults` so they survive app relaunches and tab switches: prompt, negative prompt, voiceover narration text, voiceover source + voice (ElevenLabs/MLX Audio), music enabled + genre, "Generate Audio" toggle for the unified AV model, Gemma prompt-enhancement parameters (repetition penalty, top-p), selected tab, and the full `GenerationParameters` struct (steps, guidance, width/height, frames, FPS, seed, VAE tiling, image strength) round-tripped through JSON. Add a "Reset to Defaults…" button under Preferences → General → Reset behind a confirmation alert; Python path, output directory, and ElevenLabs API key are intentionally preserved.
 - **Memory preflight** — Non-dismissable-by-default banner when a large unified bf16 model is paired with Gemma 12B bf16 on Macs with under 32 GB physical memory (rough unified-memory guidance using `host_statistics64`).
 - **Text encoder presets** — Gemma 4B bf16 (`mlx-community/gemma-3-4b-it-bf16`) and a **Custom Hugging Face repo** field in Preferences (alongside clearer labels for 12B bf16 and 12B 4-bit).
 
