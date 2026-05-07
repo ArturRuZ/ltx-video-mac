@@ -5,6 +5,11 @@ All notable changes to LTX Video Generator will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.59] - 2026-05-07
+
+### Added
+- **Issue #54 — Configurable Gemma text encoder** — Add a Preferences picker for the generation text encoder with bf16 and 4-bit Gemma options. The selected encoder is captured per generation and passed to `mlx_video.generate_av` via `--text-encoder-repo`, allowing lower-memory Macs to use `mlx-community/gemma-3-12b-it-4bit`.
+
 ## [2.3.58] - 2026-05-02
 
 ### Fixed
