@@ -283,7 +283,7 @@ struct ParametersView: View {
                         }
                         .labelsHidden()
                         
-                        Text("Controls memory vs speed tradeoff during decoding. Aggressive uses less memory; Conservative is faster but needs more memory.")
+                        Text("Controls memory vs speed tradeoff during decoding. Aggressive reduces peak memory but can trigger macOS Metal “Impacting Interactivity” watchdogs on small resolutions; use Auto or Conservative if that happens.")
                             .font(.caption2)
                             .foregroundStyle(.tertiary)
                     }

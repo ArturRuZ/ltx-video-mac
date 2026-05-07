@@ -46,6 +46,7 @@ struct PromptInputView: View {
     @State private var previewError: String?
     @State private var previewStatusMessage = ""
     @State private var showMemoryRiskAlert = false
+    @State private var dismissedHeavyEncoderComboHint = false
     @State private var pendingQueueAction: PendingQueueAction?
     @State private var showSaveCharacterProfile = false
     @State private var newCharacterProfileName = ""
@@ -81,6 +82,17 @@ struct PromptInputView: View {
             ? ""
             : " Switch tiling to aggressive for lower peak memory."
         return "This request may hit Metal memory limits (estimated ~\(estimatedMemoryGB)GB on a ~\(machineMemoryGB)GB machine). Recommended retry settings: 512x320 resolution, 25/33/49 frames, 24 FPS.\(tilingHint)"
+    }
+
+    /// Non-blocking preflight: very large bf16 stacks on small unified-memory Macs (#53).
+    private var heavyEncoderCombinationWarning: String? {
+        let physGB = Int(MacOSSystemMemory.physicalMemoryBytes / 1_073_741_824)
+        let avail = MacOSSystemMemory.approximateAvailableMemoryGBFormatted()
+        let model = selectedModel
+        let isLargeBf16Unified = model.id == "ltx2_unified" || model.id == "ltx23_unified"
+        let is12bBf16Encoder = selectedTextEncoderID == "gemma3_12b_bf16"
+        guard isLargeBf16Unified, is12bBf16Encoder, physGB < 32 else { return nil }
+        return "This pairing (large unified LTX bf16 model + Gemma 12B bf16 text encoder) often needs on the order of 50 GB unified memory during TEXT_ENCODER. Your Mac has about \(physGB) GB physical memory (~\(avail) GB available, approximate). Prefer Gemma 4B bf16 or 4-bit (Preferences → General → Text Encoder), enable aggressive VAE tiling, or fewer pixels/frames. You can still generate."
     }
 
     private var selectedVoiceId: String {
@@ -518,6 +530,29 @@ struct PromptInputView: View {
                 }
             }
             
+            if let heavyHint = heavyEncoderCombinationWarning, !dismissedHeavyEncoderComboHint {
+                HStack(alignment: .top, spacing: 8) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.orange)
+                    Text(heavyHint)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Spacer(minLength: 8)
+                    Button("Dismiss") {
+                        dismissedHeavyEncoderComboHint = true
+                    }
+                    .buttonStyle(.borderless)
+                    .controlSize(.small)
+                }
+                .padding(10)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color.orange.opacity(0.08))
+                )
+            }
+
             // Quick actions
             HStack(spacing: 12) {
                 // Generate button - changes appearance based on state
@@ -661,6 +696,10 @@ struct PromptInputView: View {
             if !selectedModel.supportsBuiltInAudio {
                 disableAudio = false
             }
+            dismissedHeavyEncoderComboHint = false
+        }
+        .onChange(of: selectedTextEncoderID) { _, _ in
+            dismissedHeavyEncoderComboHint = false
         }
         .alert("High Memory Risk", isPresented: $showMemoryRiskAlert) {
             Button("Continue Anyway") {

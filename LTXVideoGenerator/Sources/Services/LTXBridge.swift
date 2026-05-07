@@ -26,6 +26,55 @@ enum LTXError: LocalizedError, Equatable {
 // Use subprocess to run MLX-based generation
 class LTXBridge {
     static let shared = LTXBridge()
+
+    private static let metalInteractivityUserHint =
+        "GPU command buffer was killed by the system because a single Metal kernel ran too long (typical with VAE tiling set to Aggressive on small resolutions or older hardware). Try tiling Auto or Conservative, lower resolution, or fewer frames. Disabling Aggressive tiling is the first thing to try.\n\n"
+        + "Update mlx-video-with-audio if you are on an older build. Full log: /tmp/ltx_generation.log"
+
+    private static func jetsamSigKillUserHint(modelRepo: String, textEncoderRepo: String) -> String {
+        let phys = MacOSSystemMemory.physicalMemoryGBFormatted()
+        let avail = MacOSSystemMemory.approximateAvailableMemoryGBFormatted()
+        return "macOS killed the generator process due to memory pressure. Try a smaller text encoder (for example mlx-community/gemma-3-4b-it-bf16 or a 4-bit quant), enable aggressive VAE tiling, lower resolution or frame count, or close other apps.\n\n"
+            + "Model: \(modelRepo). Text encoder: \(textEncoderRepo). This Mac reports about \(phys) GB physical memory and roughly \(avail) GB available (approximate).\n\n"
+            + "Open Preferences → General and use the Text Encoder picker (Gemma 4B bf16 or 4-bit). Full log: /tmp/ltx_generation.log"
+    }
+
+    private static func stderrIndicatesMetalInteractivity(_ stderr: String) -> Bool {
+        let low = stderr.lowercased()
+        return low.contains("diagnostic_metal_interactivity")
+            || low.contains("impacting interactivity")
+            || low.contains("kiogpucommandbuffercallbackerrorimpactinginteractivity")
+    }
+
+    /// Interprets the outer Python wrapper exit / stderr after generation.
+    private static func diagnoseRunnerFailure(
+        exitCode: Int32,
+        stderr: String,
+        modelRepo: String?,
+        textEncoderRepo: String?
+    ) -> String? {
+        let low = stderr.lowercased()
+        let model = modelRepo ?? "(unknown model)"
+        let enc = textEncoderRepo ?? "(unknown text encoder)"
+
+        if low.contains("diagnostic_metal_interactivity")
+            || low.contains("impacting interactivity")
+            || low.contains("kiogpucommandbuffercallbackerrorimpactinginteractivity")
+            || low.contains("kIOGPUCommandBufferCallbackErrorImpactingInteractivity".lowercased())
+        {
+            return metalInteractivityUserHint
+        }
+
+        let looksLikeSigKill = low.contains("sigkill")
+            || low.contains("code -9")
+            || low.contains("signal 9")
+            || low.contains("killed by signal 9")
+            || (low.contains("runtimeerror") && low.contains("-9"))
+        if looksLikeSigKill || exitCode == 137 || exitCode == 9 {
+            return jetsamSigKillUserHint(modelRepo: model, textEncoderRepo: enc)
+        }
+        return nil
+    }
     
     private(set) var isModelLoaded = false
     private var pythonHome: String?
@@ -129,7 +178,18 @@ class LTXBridge {
         let modelRepo = selectedModel.repo
         let selectedTextEncoder = LTXTextEncoderCatalog.resolvedTextEncoder(id: request.textEncoderId)
         let textEncoderRepo = selectedTextEncoder.repo
-        let oomRecoveryHint = "Metal ran out of memory during generation. Retry with safer settings: 512x320 resolution, 25/33/49 frames, 24 FPS, and tiling set to aggressive. Close memory-heavy apps, then retry."
+        guard !textEncoderRepo.isEmpty else {
+            throw LTXError.generationFailed(
+                "Set a text encoder Hugging Face repo in Preferences → General (pick a preset or fill in Custom)."
+            )
+        }
+        let (effectiveTilingMode, appliedTilingRecovery) = GenerationFailureRecovery.effectiveTilingMode(
+            requested: params.vaeTilingMode
+        )
+        if appliedTilingRecovery {
+            progressHandler(0.05, "VAE tiling set to Auto after a previous Metal timeout with Aggressive tiling.")
+        }
+        let oomRecoveryHint = "Metal ran out of memory during generation. Retry with safer settings: 512x320 resolution, 25/33/49 frames, 24 FPS, and VAE tiling set to aggressive. Close memory-heavy apps, then retry."
         let isImageToVideo = request.isImageToVideo
         let modeDescription = isImageToVideo ? "image-to-video" : "text-to-video"
         progressHandler(0.1, "Starting \(modeDescription) (\(selectedModel.displayName))...")
@@ -306,7 +366,7 @@ try:
         "--output-path", "\(outputPath)",
         "--model-repo", model_repo,
         "--text-encoder-repo", text_encoder_repo,
-        "--tiling", "\(params.vaeTilingMode)",
+        "--tiling", "\(effectiveTilingMode)",
     ]
     if negative_prompt.strip():
         cmd.extend(["--negative-prompt", negative_prompt])
@@ -346,6 +406,7 @@ try:
     # flushes is available immediately.  process.stdout.read(n) uses Python's
     # BufferedReader which blocks until n bytes accumulate, starving the progress loop.
     line_buf = ""
+    interactivity_watchdog = False
     download_in_progress = False
     last_download_activity = None  # None = not in download phase yet; set when first download line seen
     # Large models can go quiet between tqdm updates; heartbeats + long window avoid false kills.
@@ -391,6 +452,8 @@ try:
                     continue
                 log(line)
                 low = line.lower()
+                if ("impacting interactivity" in low) or ("kiogpucommandbuffercallbackerrorimpactinginteractivity" in low):
+                    interactivity_watchdog = True
                 if ("fetching" in low) or ("downloading" in low) or line.startswith("DOWNLOAD:") or ("%" in line and "|" in line):
                     download_in_progress = True
                     if last_download_activity is None:
@@ -428,7 +491,22 @@ try:
         if process.returncode < 0:
             signal_num = -process.returncode
             signal_name = signal.Signals(signal_num).name if signal_num in signal.Signals._value2member_map_ else f"signal {signal_num}"
+            if signal_num == signal.SIGKILL:
+                log("DIAGNOSTIC_SIGKILL: mlx_video.generate_av killed by SIGKILL (exit code -9); likely macOS memory pressure during text encoder / model eval.")
+                raise RuntimeError(
+                    "mlx_video.generate_av was killed by SIGKILL (exit code -9). "
+                    "macOS often sends SIGKILL under unified memory pressure (jetsam). "
+                    "Try a smaller text encoder in Preferences, aggressive VAE tiling, lower resolution or frames, or close other apps. "
+                    "Full output is in /tmp/ltx_generation.log."
+                )
             if signal_num == signal.SIGABRT:
+                if interactivity_watchdog:
+                    log("DIAGNOSTIC_METAL_INTERACTIVITY: SIGABRT after Metal Impacting Interactivity watchdog.")
+                    raise RuntimeError(
+                        "DIAGNOSTIC_METAL_INTERACTIVITY: mlx_video.generate_av aborted with SIGABRT (code -6) after "
+                        "[METAL] Impacting Interactivity / kIOGPUCommandBufferCallbackErrorImpactingInteractivity. "
+                        "Try VAE tiling auto or conservative instead of aggressive; reduce resolution or frames."
+                    )
                 raise RuntimeError(
                     "mlx_video.generate_av aborted with SIGABRT (code -6). "
                     "This is usually a native MLX/Metal abort, often from peak unified-memory pressure "
@@ -466,7 +544,12 @@ except Exception as e:
         
         let output: String
         do {
-            output = try await runPython(script: script, timeout: 3600) { stderrChunk in
+            output = try await runPython(
+                script: script,
+                timeout: 3600,
+                generationDiagnostics: (modelRepo: modelRepo, textEncoderRepo: textEncoderRepo),
+                originalVaeTilingMode: request.parameters.vaeTilingMode
+            ) { stderrChunk in
             // Build complete logical lines from chunked stderr reads so STAGE/STATUS tokens
             // are never dropped when a token is split across read boundaries.
             stderrLineBufferLock.lock()
@@ -530,15 +613,39 @@ except Exception as e:
                         failureHintLock.lock()
                         capturedFailureHint = "Detected MLX VAE channel mismatch during decoding. Update with: pip install -U \"mlx-video-with-audio>=0.1.25\". If it persists, your checkpoint may need `embedded_config.json` VAE `timestep_conditioning` — file an issue with logs."
                         failureHintLock.unlock()
-                    } else if lower.contains("kiogpucommandbuffercallbackerrorimpactinginteractivity")
+                    } else if lower.contains("diagnostic_sigkill")
+                                || (lower.contains("sigkill") && lower.contains("-9"))
+                                || lower.contains("code -9")
+                                || lower.contains("signal 9") {
+                        failureHintLock.lock()
+                        capturedFailureHint = Self.jetsamSigKillUserHint(
+                            modelRepo: modelRepo,
+                            textEncoderRepo: textEncoderRepo
+                        )
+                        failureHintLock.unlock()
+                    } else if lower.contains("diagnostic_metal_interactivity")
+                                || lower.contains("kiogpucommandbuffercallbackerrorimpactinginteractivity")
                                 || lower.contains("impacting interactivity") {
                         failureHintLock.lock()
-                        capturedFailureHint = "Metal stopped generation because a command buffer was impacting interactivity. Update with: pip install -U \"mlx-video-with-audio>=0.1.36\" and retry; this version splits large model warmup work into smaller Metal command buffers. If it persists, attach /tmp/ltx_generation.log to the GitHub issue."
+                        capturedFailureHint = Self.metalInteractivityUserHint
                         failureHintLock.unlock()
                         progressHandler(0.01, "Generation stopped: Metal watchdog timeout")
+                        if request.parameters.vaeTilingMode == "aggressive" {
+                            GenerationFailureRecovery.recordMetalInteractivityFailureWithAggressiveTiling()
+                        }
                     } else if lower.contains("sigabrt") || lower.contains("failed with code -6") || lower.contains("aborted with code -6") {
                         failureHintLock.lock()
-                        capturedFailureHint = "The MLX generation process aborted with SIGABRT (code -6). Update with: pip install -U \"mlx-video-with-audio>=0.1.36\" and retry. If it still fails, try 512x320 resolution, 25/33/49 frames, 24 FPS, and aggressive VAE tiling, then attach /tmp/ltx_generation.log to the GitHub issue."
+                        let interactivityLine = lower.contains("impacting interactivity")
+                            || lower.contains("kiogpucommandbuffercallbackerrorimpactinginteractivity")
+                            || (lower.contains("libc++abi") && lower.contains("impacting interactivity"))
+                        if interactivityLine {
+                            capturedFailureHint = Self.metalInteractivityUserHint
+                            if request.parameters.vaeTilingMode == "aggressive" {
+                                GenerationFailureRecovery.recordMetalInteractivityFailureWithAggressiveTiling()
+                            }
+                        } else {
+                            capturedFailureHint = "The MLX generation process aborted with SIGABRT (code -6). Update with: pip install -U \"mlx-video-with-audio>=0.1.36\" and retry. If it still fails, try 512x320 resolution, 25/33/49 frames, 24 FPS, and tuning VAE tiling, then attach /tmp/ltx_generation.log to the GitHub issue."
+                        }
                         failureHintLock.unlock()
                     } else if lower.contains("kiogpucommandbuffercallbackerroroutofmemory")
                                 || lower.contains("insufficient memory")
@@ -655,10 +762,22 @@ except Exception as e:
             failureHintLock.lock()
             let hint = capturedFailureHint
             failureHintLock.unlock()
+            let excerpt = LTXGenerationLogSummary.userFacingExcerpt()
             if let hint, !hint.isEmpty {
-                throw LTXError.generationFailed(hint)
+                LTXGenerationLogSummary.appendToLog(
+                    lines: ["", "=== Swift failure summary ===", hint, "", excerpt]
+                )
+                var full = hint
+                if !excerpt.isEmpty {
+                    full += "\n\n--- Log excerpt ---\n" + excerpt
+                }
+                throw LTXError.generationFailed(full)
             }
-            throw error
+            LTXGenerationLogSummary.appendToLog(
+                lines: ["", "=== Swift failure (no stderr hint) ===", error.localizedDescription, "", excerpt]
+            )
+            let extra = excerpt.isEmpty ? "" : "\n\n--- Log excerpt ---\n" + excerpt
+            throw LTXError.generationFailed(error.localizedDescription + extra)
         }
         
         // Parse JSON output - extract JSON from output (may have other text before it)
@@ -768,6 +887,8 @@ except Exception as e:
     private func runPython(
         script: String,
         timeout: TimeInterval = 60,
+        generationDiagnostics: (modelRepo: String, textEncoderRepo: String)? = nil,
+        originalVaeTilingMode: String? = nil,
         stderrHandler: ((String) -> Void)? = nil
     ) async throws -> String {
         guard let python = pythonExecutable else {
@@ -868,7 +989,31 @@ except Exception as e:
                         if !trimmedOutput.isEmpty && isOnlyHarmless {
                             continuation.resume(returning: trimmedOutput)
                         } else {
-                            continuation.resume(throwing: LTXError.generationFailed("Exit code \(process.terminationStatus). Check /tmp/ltx_generation.log"))
+                            let excerpt = LTXGenerationLogSummary.userFacingExcerpt()
+                            let diagnosed = Self.diagnoseRunnerFailure(
+                                exitCode: process.terminationStatus,
+                                stderr: stderr,
+                                modelRepo: generationDiagnostics?.modelRepo,
+                                textEncoderRepo: generationDiagnostics?.textEncoderRepo
+                            )
+                            if Self.stderrIndicatesMetalInteractivity(stderr),
+                               originalVaeTilingMode == "aggressive" {
+                                GenerationFailureRecovery.recordMetalInteractivityFailureWithAggressiveTiling()
+                            }
+                            var message = diagnosed
+                                ?? "Exit code \(process.terminationStatus). Check /tmp/ltx_generation.log"
+                            if !stderr.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                               diagnosed == nil || stderr.count < 12_000 {
+                                message += "\n\n--- Recent stderr ---\n"
+                                    + String(stderr.suffix(8000))
+                            }
+                            if !excerpt.isEmpty {
+                                message += "\n\n--- Log excerpt ---\n" + excerpt
+                            }
+                            LTXGenerationLogSummary.appendToLog(
+                                lines: ["", "=== Swift runner summary ===", message]
+                            )
+                            continuation.resume(throwing: LTXError.generationFailed(message))
                         }
                     } else {
                         continuation.resume(returning: trimmedOutput)
