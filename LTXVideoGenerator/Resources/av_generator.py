@@ -108,6 +108,12 @@ def main():
         help="Model repository ID (selected in app preferences)",
     )
     parser.add_argument(
+        "--text-encoder-repo",
+        type=str,
+        default="mlx-community/gemma-3-12b-it-bf16",
+        help="Gemma text encoder repository ID (selected in app preferences)",
+    )
+    parser.add_argument(
         "--image",
         "-i",
         type=str,
@@ -159,7 +165,7 @@ def main():
 
         generate_video_with_audio(
             model_repo=args.model_repo,
-            text_encoder_repo=None,
+            text_encoder_repo=args.text_encoder_repo,
             prompt=args.prompt,
             height=args.height,
             width=args.width,

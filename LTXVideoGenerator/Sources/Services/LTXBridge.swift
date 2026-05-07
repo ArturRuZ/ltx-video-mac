@@ -127,6 +127,8 @@ class LTXBridge {
         
         let selectedModel = LTXModelCatalog.resolvedModel(id: request.modelId)
         let modelRepo = selectedModel.repo
+        let selectedTextEncoder = LTXTextEncoderCatalog.resolvedTextEncoder(id: request.textEncoderId)
+        let textEncoderRepo = selectedTextEncoder.repo
         let oomRecoveryHint = "Metal ran out of memory during generation. Retry with safer settings: 512x320 resolution, 25/33/49 frames, 24 FPS, and tiling set to aggressive. Close memory-heavy apps, then retry."
         let isImageToVideo = request.isImageToVideo
         let modeDescription = isImageToVideo ? "image-to-video" : "text-to-video"
@@ -216,7 +218,9 @@ try:
     log(f"MLX device: Apple Silicon")
     
     model_repo = "\(modelRepo)"
+    text_encoder_repo = "\(textEncoderRepo)"
     log(f"Model: {model_repo}")
+    log(f"Text encoder: {text_encoder_repo}")
     local_mlx_video_repo = os.path.expanduser("~/projects/mlx-video-with-audio")
     local_has_mlx = os.path.exists(os.path.join(local_mlx_video_repo, "mlx_video", "generate_av.py"))
 
@@ -301,6 +305,7 @@ try:
         "--cfg-scale", str(\(params.guidanceScale)),
         "--output-path", "\(outputPath)",
         "--model-repo", model_repo,
+        "--text-encoder-repo", text_encoder_repo,
         "--tiling", "\(params.vaeTilingMode)",
     ]
     if negative_prompt.strip():

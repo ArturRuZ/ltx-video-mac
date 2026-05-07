@@ -225,6 +225,7 @@ struct HistoryView: View {
             musicEnabled: result.hasMusic,
             musicGenre: result.musicGenre,
             modelId: result.modelId,
+            textEncoderId: LTXTextEncoderCatalog.selectedTextEncoder().id,
             parameters: params
         )
         generationService.addToQueue(request)

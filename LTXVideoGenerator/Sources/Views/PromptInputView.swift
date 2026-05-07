@@ -24,6 +24,7 @@ struct PromptInputView: View {
     @AppStorage("elevenLabsApiKey") private var elevenLabsApiKey = ""
     @AppStorage("enableGemmaPromptEnhancement") private var enableGemmaPromptEnhancement = false
     @AppStorage(LTXModelCatalog.selectedModelIDKey) private var selectedModelID = LTXModelCatalog.defaultModelID
+    @AppStorage(LTXTextEncoderCatalog.selectedTextEncoderIDKey) private var selectedTextEncoderID = LTXTextEncoderCatalog.defaultTextEncoderID
     @State private var voiceoverSource: AudioSource = .mlxAudio
     @State private var selectedElevenLabsVoice: String = "21m00Tcm4TlvDq8ikWAM"
     @State private var selectedMLXVoice: String = "af_heart"
@@ -714,6 +715,7 @@ struct PromptInputView: View {
             gemmaRepetitionPenalty: gemmaRepetitionPenalty,
             gemmaTopP: gemmaTopP,
             modelId: selectedModelID,
+            textEncoderId: selectedTextEncoderID,
             parameters: parameters
         )
         generationService.addToQueue(request)
@@ -793,6 +795,7 @@ struct PromptInputView: View {
                 gemmaRepetitionPenalty: gemmaRepetitionPenalty,
                 gemmaTopP: gemmaTopP,
                 modelId: selectedModelID,
+                textEncoderId: selectedTextEncoderID,
                 parameters: GenerationParameters(
                     numInferenceSteps: parameters.numInferenceSteps,
                     guidanceScale: parameters.guidanceScale,
