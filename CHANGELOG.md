@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [2.3.62] - 2026-05-12
+
+### Added
+- **Issue #58 — Lower-spec preset** — Add a `Low Memory Preview` built-in preset using 512×320, 25 frames, 15 steps, 24 FPS, and aggressive VAE tiling for safer first runs on memory-constrained Macs.
+
+### Changed
+- **Issue #61 — Default model hardening** — Default new installs to LTX-2.3 Distilled Q4 and align bundled CLI/docs model references with the app catalog.
+
+### Fixed
+- **Issue #60 — Concurrent jobs** — Make generation queue processing single-flight across Python validation, model loading, generation, audio post-processing, and history save. Disable Generate/Add to Queue/batch actions while a job is active or preparing so a second hidden job cannot start.
+- **Issue #61 — VAE mismatch guidance** — Expand the channel-mismatch error to call out stale/incomplete Hugging Face snapshots, model switching, cache cleanup, and `hf download` remediation.
+
 ## [2.3.61] - 2026-05-06
 
 ### Fixed

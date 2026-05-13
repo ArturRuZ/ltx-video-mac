@@ -101,6 +101,10 @@ struct PromptInputView: View {
     private var selectedVoiceId: String {
         voiceoverSource == .elevenLabs ? selectedElevenLabsVoice : selectedMLXVoice
     }
+
+    private var generationActionsDisabled: Bool {
+        prompt.isEmpty || generationService.isProcessing || generationService.currentRequest != nil
+    }
     
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -593,7 +597,7 @@ struct PromptInputView: View {
                     }
                     .buttonStyle(.borderedProminent)
                     .controlSize(.large)
-                    .disabled(prompt.isEmpty || generationService.isProcessing)
+                    .disabled(generationActionsDisabled)
                 }
                 
                 // Track completion - only when currentRequest goes away (actual generation done)
@@ -619,7 +623,7 @@ struct PromptInputView: View {
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.large)
-                .disabled(prompt.isEmpty)
+                .disabled(generationActionsDisabled)
                 
                 // Batch button
                 Menu {
@@ -639,6 +643,7 @@ struct PromptInputView: View {
                 }
                 .menuStyle(.borderlessButton)
                 .frame(width: 44)
+                .disabled(generationActionsDisabled)
             }
 
             if !disableAudio && parameters.fps != 24 {

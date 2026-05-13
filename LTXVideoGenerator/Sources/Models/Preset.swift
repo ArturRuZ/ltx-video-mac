@@ -29,6 +29,21 @@ struct Preset: Identifiable, Codable, Equatable, Hashable {
             isBuiltIn: true
         ),
         Preset(
+            name: "Low Memory Preview",
+            parameters: GenerationParameters(
+                numInferenceSteps: 15,
+                guidanceScale: 3.0,
+                width: 512,
+                height: 320,
+                numFrames: 25,
+                fps: 24,
+                seed: nil,
+                vaeTilingMode: "aggressive",
+                imageStrength: 1.0
+            ),
+            isBuiltIn: true
+        ),
+        Preset(
             name: "Standard",
             parameters: .default,
             isBuiltIn: true

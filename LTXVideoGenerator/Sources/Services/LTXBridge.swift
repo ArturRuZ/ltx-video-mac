@@ -611,7 +611,7 @@ except Exception as e:
                         failureHintLock.unlock()
                     } else if lower.contains("valueerror: [conv] expect the input channels") {
                         failureHintLock.lock()
-                        capturedFailureHint = "Detected MLX VAE channel mismatch during decoding. Update with: pip install -U \"mlx-video-with-audio>=0.1.25\". If it persists, your checkpoint may need `embedded_config.json` VAE `timestep_conditioning` — file an issue with logs."
+                        capturedFailureHint = "Detected MLX VAE channel mismatch during decoding. Update with: pip install -U \"mlx-video-with-audio>=0.1.36\". If it persists, the selected Hugging Face model snapshot may be incomplete or stale. Try Preferences → General → Model and select LTX-2.3 Distilled Q4, clear the cached model under ~/.cache/huggingface/hub, or pre-download a fresh copy with: hf download \(modelRepo). Full log: /tmp/ltx_generation.log"
                         failureHintLock.unlock()
                     } else if lower.contains("diagnostic_sigkill")
                                 || (lower.contains("sigkill") && lower.contains("-9"))

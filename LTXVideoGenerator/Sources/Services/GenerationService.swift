@@ -54,7 +54,6 @@ class GenerationService: ObservableObject {
         isProcessing = false
         progress = 0
         statusMessage = ""
-        processNextIfNeeded()
     }
     
     func moveUp(_ request: GenerationRequest) {
@@ -105,13 +104,16 @@ class GenerationService: ObservableObject {
     // MARK: - Processing
     
     private func processNextIfNeeded() {
-        guard !isProcessing,
+        guard processingTask == nil,
+              !isProcessing,
               let nextIndex = queue.firstIndex(where: { $0.status == .pending }) else {
             return
         }
         
         processingTask = Task {
             await processRequest(at: nextIndex)
+            processingTask = nil
+            processNextIfNeeded()
         }
     }
     
@@ -132,7 +134,6 @@ class GenerationService: ObservableObject {
                 isProcessing = false
                 progress = 0
                 queue.removeAll { $0.status != .pending }
-                processNextIfNeeded()
                 return
             }
             if let details = ensure.details {
@@ -145,7 +146,6 @@ class GenerationService: ObservableObject {
             isProcessing = false
             progress = 0
             queue.removeAll { $0.status != .pending }
-            processNextIfNeeded()
             return
         }
         
@@ -156,6 +156,7 @@ class GenerationService: ObservableObject {
                 isProcessing = false
                 return
             }
+            isProcessing = true
         }
         
         // Update status
@@ -316,7 +317,5 @@ class GenerationService: ObservableObject {
         // Remove completed/failed/cancelled from queue
         queue.removeAll { $0.status != .pending }
         
-        // Process next
-        processNextIfNeeded()
     }
 }

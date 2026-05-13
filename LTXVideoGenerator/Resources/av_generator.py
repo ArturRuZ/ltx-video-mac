@@ -104,7 +104,7 @@ def main():
     parser.add_argument(
         "--model-repo",
         type=str,
-        default="notapalindrome/ltx2-mlx-av",
+        default="notapalindrome/ltx23-mlx-av-q4",
         help="Model repository ID (selected in app preferences)",
     )
     parser.add_argument(

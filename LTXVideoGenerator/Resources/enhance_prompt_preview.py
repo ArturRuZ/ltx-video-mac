@@ -130,7 +130,7 @@ def main():
     parser.add_argument("--prompt", "-p", required=True, help="User prompt to enhance")
     parser.add_argument(
         "--model-repo",
-        default="notapalindrome/ltx2-mlx-av",
+        default="notapalindrome/ltx23-mlx-av-q4",
         help="Generation model repository (from app selection)",
     )
     parser.add_argument(

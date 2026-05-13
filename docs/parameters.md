@@ -20,12 +20,13 @@ Detailed explanation of all generation parameters for LTX-2.
 
 ## Model
 
-The app supports two LTX-2 models running on MLX (Apple's machine learning framework). Select your model in Preferences.
+The app supports multiple LTX-2 models running on MLX (Apple's machine learning framework). Select your model in Preferences.
 
 | Model | Parameters | Size | Vocoder | Notes |
 |:------|:-----------|:-----|:--------|:------|
 | LTX-2 Unified (`notapalindrome/ltx2-mlx-av`) | 19B | ~42GB | Standard | Original unified model |
-| LTX-2.3 Distilled Q4 (`dgrauet/ltx-2.3-mlx-distilled-q4`) | 19B (Q4) | ~19.4GB | BigVGAN | Quantized, smaller download |
+| LTX-2.3 Unified Beta (`notapalindrome/ltx23-mlx-av`) | 19B | ~48GB | BigVGAN | Distilled beta model |
+| LTX-2.3 Distilled Q4 Beta (`notapalindrome/ltx23-mlx-av-q4`) | 19B (Q4) | ~22GB | BigVGAN | Quantized, smaller download; default for new installs |
 
 Both models use a 2-stage pipeline:
 1. **Stage 1:** Generate at half resolution

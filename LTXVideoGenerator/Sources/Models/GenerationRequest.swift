@@ -28,8 +28,8 @@ struct LTXTextEncoder: Identifiable, Codable, Hashable {
 
 enum LTXModelCatalog {
     static let selectedModelIDKey = "selectedModelID"
-    // Keep default on Unified unless the user explicitly changes it.
-    static let defaultModelID = "ltx2_unified"
+    // Prefer the smaller LTX-2.3 Q4 model for new installs; existing user preferences still win.
+    static let defaultModelID = "ltx23_distilled_q4"
 
     static let all: [LTXModel] = [
         LTXModel(

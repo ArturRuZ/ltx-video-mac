@@ -70,7 +70,8 @@ Progress is shown in the app during download.
 
 **Available models:**
 - LTX-2 Unified (`notapalindrome/ltx2-mlx-av`, ~42GB)
-- LTX-2.3 Distilled Q4 (`dgrauet/ltx-2.3-mlx-distilled-q4`, ~19.4GB)
+- LTX-2.3 Unified Beta (`notapalindrome/ltx23-mlx-av`, ~48GB)
+- LTX-2.3 Distilled Q4 Beta (`notapalindrome/ltx23-mlx-av-q4`, ~22GB, default for new installs)
 
 ## Usage
 
@@ -217,7 +218,8 @@ open LTXVideoGenerator/LTXVideoGenerator.xcodeproj
 - **ML Framework**: [MLX](https://github.com/ml-explore/mlx) (Apple's machine learning framework)
 - **Models**:
   - [LTX-2 Unified](https://huggingface.co/notapalindrome/ltx2-mlx-av) (~42GB, synchronized audio+video)
-  - [LTX-2.3 Distilled Q4](https://huggingface.co/dgrauet/ltx-2.3-mlx-distilled-q4) (~19.4GB, synchronized audio+video)
+  - [LTX-2.3 Unified Beta](https://huggingface.co/notapalindrome/ltx23-mlx-av) (~48GB, synchronized audio+video)
+  - [LTX-2.3 Distilled Q4 Beta](https://huggingface.co/notapalindrome/ltx23-mlx-av-q4) (~22GB, synchronized audio+video)
 - **Precision**: bfloat16
 
 ### Architecture
@@ -245,7 +247,7 @@ The download progress updates every 1%. Download time depends on selected model 
 - Then click "Auto Detect" in Preferences
 
 ### "LTX 2.3 conversion / LoRA compatibility"
-- This app supports multiple AV model repos, including `notapalindrome/ltx2-mlx-av` and `dgrauet/ltx-2.3-mlx-distilled-q4`.
+- This app supports multiple AV model repos, including `notapalindrome/ltx2-mlx-av`, `notapalindrome/ltx23-mlx-av`, and `notapalindrome/ltx23-mlx-av-q4`.
 - Converting additional upstream checkpoints can require package-level updates in `mlx-video-with-audio` before they run reliably here.
 - Standard LTX LoRA workflows are not guaranteed to transfer directly to the MLX-converted AV path without conversion tooling support.
 
