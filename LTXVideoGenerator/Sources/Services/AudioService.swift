@@ -637,6 +637,23 @@ class AudioService: ObservableObject {
     }
     
     // MARK: - FFmpeg Merge
+
+    private func temporaryMergedVideoURL(for outputURL: URL) -> URL {
+        let baseName = outputURL.deletingPathExtension().lastPathComponent
+        let fileExtension = outputURL.pathExtension.isEmpty ? "mp4" : outputURL.pathExtension
+        return outputURL
+            .deletingLastPathComponent()
+            .appendingPathComponent("\(baseName).tmp-\(UUID().uuidString).\(fileExtension)")
+    }
+
+    private func finalizeMergedVideo(from temporaryURL: URL, to outputURL: URL) throws {
+        let fileManager = FileManager.default
+        if fileManager.fileExists(atPath: outputURL.path) {
+            _ = try fileManager.replaceItemAt(outputURL, withItemAt: temporaryURL, backupItemName: nil, options: [])
+            return
+        }
+        try fileManager.moveItem(at: temporaryURL, to: outputURL)
+    }
     
     func mergeAudioWithVideo(
         videoURL: URL,
@@ -645,6 +662,10 @@ class AudioService: ObservableObject {
         progressHandler: @escaping (Double, String) -> Void
     ) async throws {
         progressHandler(0.1, "Merging audio with video...")
+        let temporaryOutputURL = temporaryMergedVideoURL(for: outputURL)
+        defer {
+            try? FileManager.default.removeItem(at: temporaryOutputURL)
+        }
         
         // Find ffmpeg
         let ffmpegPaths = [
@@ -672,7 +693,7 @@ class AudioService: ObservableObject {
             "-c:v", "copy",
             "-c:a", "aac",
             "-b:a", "192k",
-            outputURL.path
+            temporaryOutputURL.path
         ]
         
         let stderrPipe = Pipe()
@@ -690,6 +711,8 @@ class AudioService: ObservableObject {
             let errorOutput = String(data: errorData, encoding: .utf8) ?? "Unknown error"
             throw AudioError.ffmpegFailed(errorOutput)
         }
+
+        try finalizeMergedVideo(from: temporaryOutputURL, to: outputURL)
         
         progressHandler(1.0, "Merge complete")
     }
@@ -921,6 +944,10 @@ class AudioService: ObservableObject {
         progressHandler: @escaping (Double, String) -> Void
     ) async throws {
         progressHandler(0.1, "Merging music with video...")
+        let temporaryOutputURL = temporaryMergedVideoURL(for: outputURL)
+        defer {
+            try? FileManager.default.removeItem(at: temporaryOutputURL)
+        }
         
         // Find ffmpeg
         let ffmpegPaths = [
@@ -954,7 +981,7 @@ class AudioService: ObservableObject {
             "-shortest",
             "-map", "0:v:0",
             "-map", "1:a:0",
-            outputURL.path
+            temporaryOutputURL.path
         ]
         
         let stderrPipe = Pipe()
@@ -972,6 +999,8 @@ class AudioService: ObservableObject {
             let errorOutput = String(data: errorData, encoding: .utf8) ?? "Unknown error"
             throw AudioError.ffmpegFailed(errorOutput)
         }
+
+        try finalizeMergedVideo(from: temporaryOutputURL, to: outputURL)
         
         progressHandler(1.0, "Music merge complete")
     }
@@ -986,6 +1015,10 @@ class AudioService: ObservableObject {
         progressHandler: @escaping (Double, String) -> Void
     ) async throws {
         progressHandler(0.1, "Merging voiceover and music with video...")
+        let temporaryOutputURL = temporaryMergedVideoURL(for: outputURL)
+        defer {
+            try? FileManager.default.removeItem(at: temporaryOutputURL)
+        }
         
         // Find ffmpeg
         let ffmpegPaths = [
@@ -1018,7 +1051,7 @@ class AudioService: ObservableObject {
             "-c:a", "aac",
             "-b:a", "192k",
             "-shortest",
-            outputURL.path
+            temporaryOutputURL.path
         ]
         
         let stderrPipe = Pipe()
@@ -1036,6 +1069,8 @@ class AudioService: ObservableObject {
             let errorOutput = String(data: errorData, encoding: .utf8) ?? "Unknown error"
             throw AudioError.ffmpegFailed(errorOutput)
         }
+
+        try finalizeMergedVideo(from: temporaryOutputURL, to: outputURL)
         
         progressHandler(1.0, "Audio merge complete")
     }
